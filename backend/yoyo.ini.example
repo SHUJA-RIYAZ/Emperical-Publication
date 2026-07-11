@@ -1,0 +1,6 @@
+[DEFAULT]
+sources = migrations
+# yoyo's mysql:// scheme uses the PyMySQL driver ('%' doubled for configparser)
+database = mysql://USER:PASSWORD@HOST:PORT/DATABASE
+batch_mode = on
+verbosity = 1

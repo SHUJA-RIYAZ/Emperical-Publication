@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Emperical International Publication
 
-## Getting Started
+A premium, production-quality publishing platform: a Next.js 15 frontend, a FastAPI + MySQL backend (yoyo-migrations), and a full admin panel. The public site is **API-first with automatic mock fallback** — it runs fully featured even when the backend is offline, and becomes fully dynamic when it's up.
 
-First, run the development server:
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Frontend
+cd frontend
+npm install
+npm run dev      # http://localhost:3000
+npm run build    # production build
+npm run lint     # ESLint
+
+# Backend (see backend/README.md for full setup: DB, migrations, seeding)
+cd backend
+python -m venv .venv && .venv\Scripts\activate
+pip install -r requirements.txt
+yoyo apply --batch                     # apply MySQL migrations
+npm --prefix ../frontend run export-seed
+python seed.py                         # seed content + admin user
+uvicorn app.main:app --reload --port 8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Admin panel:** http://localhost:3000/admin — default login
+`admin@empericalpublication.com` / `Admin@123` (set in `backend/.env` before seeding).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Next.js 15** (App Router, Turbopack) + **React 19** + **TypeScript (strict)**
+- **Tailwind CSS v4** (CSS-first theming with OKLCH design tokens, dark mode)
+- **Shadcn-style UI** built on Radix primitives (dialog, sheet, select, tabs, accordion…)
+- **Framer Motion** — page transitions, scroll reveals, staggered grids, counters, timeline
+- **React Hook Form + Zod** — all forms with local validation
+- **Zustand** (persisted) — wishlist state
+- **Swiper** — featured books and testimonials carousels
+- **Lucide** icons + custom inline brand glyphs
+- **Sonner** toasts, **next-themes** theme toggle
 
-## Learn More
+## Architecture
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/            # Routes: home, about, services, books(+details), authors(+profile),
+│                   # journals, blog(+details), publish, contact, auth screens, 404,
+│                   # sitemap.ts, robots.ts
+├── components/
+│   ├── ui/         # Reusable primitives (button, card, dialog, table, pagination…)
+│   ├── common/     # Reveal, SectionHeading, BookCover, EmptyState, ErrorState…
+│   ├── home|books|authors|journals|blog|forms|layout|services/
+├── data/           # Mock data: 50 books, 25 authors, 15 blogs, 15 journals,
+│                   # 10 testimonials, 10 FAQs, 20 services
+├── services/       # Mock service layer (async + artificial latency)
+├── hooks/          # useAsync, useDebounce, useWishlist
+├── types/          # Shared TypeScript models
+├── constants/      # Site config, nav, categories
+└── lib/            # cn(), formatters, deterministic hashing
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Backend integration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Components never touch data directly — they call service functions
+(`getBooks()`, `getAuthorBySlug()`, `submitPublishingRequest()`, …). Each
+service now calls the FastAPI backend (`NEXT_PUBLIC_API_URL`, default
+`http://localhost:8000/api`) and **falls back to the bundled mock data when the
+API is unreachable**, so builds and local demos never break. Detail pages
+(books/authors/blog) are server-rendered on demand, so content created in the
+admin panel appears immediately.
 
-## Deploy on Vercel
+### Admin panel (`/admin`)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- JWT login backed by the FastAPI `users` table (bcrypt hashes)
+- Dashboard with content counts, pending submissions, and recent activity
+- Config-driven CRUD (one `CrudManager` component + `src/config/admin-resources.ts`)
+  for Books (incl. author assignment), Authors, Blog Posts, Journals, Services,
+  Testimonials, and FAQs — create/edit dialogs, search, delete confirmation
+- Inboxes for publishing submissions (pending → in review → accepted/rejected),
+  contact messages (new → responded → archived), and newsletter subscribers
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Notable features
+
+- Books: search, category/language/year filters, 7 sort options, grid/list toggle,
+  pagination, persisted wishlist, PDF sample preview modal, related titles
+- Publish: 5-step wizard with per-step Zod validation, progress indicator,
+  localStorage autosave/restore, file-upload preview, success modal, reset
+- Global search dialog (Ctrl/Cmd+K) over the catalogue
+- Fully responsive, WCAG-minded (skip link, ARIA labels, focus rings,
+  keyboard navigation, `prefers-reduced-motion` respected)
+- SEO: per-page metadata, Open Graph, sitemap.xml, robots.txt, SSG for all
+  detail pages (books, authors, blog posts)
+- Deterministic CSS-generated book covers and avatars — zero external image
+  dependencies, no broken placeholders

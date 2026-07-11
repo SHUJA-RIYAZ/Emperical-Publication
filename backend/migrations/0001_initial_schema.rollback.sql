@@ -1,0 +1,12 @@
+DROP TABLE IF EXISTS newsletter_subscribers;
+DROP TABLE IF EXISTS contact_messages;
+DROP TABLE IF EXISTS publishing_requests;
+DROP TABLE IF EXISTS faqs;
+DROP TABLE IF EXISTS testimonials;
+DROP TABLE IF EXISTS services;
+DROP TABLE IF EXISTS blog_posts;
+DROP TABLE IF EXISTS journals;
+DROP TABLE IF EXISTS book_authors;
+DROP TABLE IF EXISTS books;
+DROP TABLE IF EXISTS authors;
+DROP TABLE IF EXISTS users;

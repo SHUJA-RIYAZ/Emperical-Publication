@@ -1,0 +1,27 @@
+# Python venv
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables
+.env
+!.env.example
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# OS files
+.DS_Store
+
+# Database migrations configuration (contains local credentials)
+yoyo.ini
+
+# Generated JSON seed data
+seed/
+

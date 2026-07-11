@@ -1,0 +1,160 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.99 0.002 90);
+  --foreground: oklch(0.22 0.03 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.03 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.03 260);
+  --primary: oklch(0.32 0.07 262);
+  --primary-foreground: oklch(0.98 0.005 90);
+  --secondary: oklch(0.955 0.008 260);
+  --secondary-foreground: oklch(0.3 0.05 262);
+  --muted: oklch(0.96 0.006 260);
+  --muted-foreground: oklch(0.5 0.02 260);
+  --accent: oklch(0.75 0.13 85);
+  --accent-foreground: oklch(0.25 0.05 262);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.98 0.005 90);
+  --border: oklch(0.91 0.008 260);
+  --input: oklch(0.91 0.008 260);
+  --ring: oklch(0.32 0.07 262);
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: oklch(0.17 0.02 262);
+  --foreground: oklch(0.93 0.008 90);
+  --card: oklch(0.21 0.025 262);
+  --card-foreground: oklch(0.93 0.008 90);
+  --popover: oklch(0.21 0.025 262);
+  --popover-foreground: oklch(0.93 0.008 90);
+  --primary: oklch(0.82 0.1 85);
+  --primary-foreground: oklch(0.2 0.03 262);
+  --secondary: oklch(0.26 0.03 262);
+  --secondary-foreground: oklch(0.93 0.008 90);
+  --muted: oklch(0.25 0.025 262);
+  --muted-foreground: oklch(0.68 0.015 260);
+  --accent: oklch(0.78 0.12 85);
+  --accent-foreground: oklch(0.2 0.03 262);
+  --destructive: oklch(0.65 0.18 25);
+  --destructive-foreground: oklch(0.98 0.005 90);
+  --border: oklch(0.3 0.02 262);
+  --input: oklch(0.3 0.02 262);
+  --ring: oklch(0.82 0.1 85);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: oklch(0.75 0.13 85 / 0.35);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-serif);
+  }
+  .container-page {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 80rem;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Swiper pagination theming */
+.swiper-pagination-bullet {
+  background: var(--muted-foreground);
+  opacity: 0.4;
+}
+.swiper-pagination-bullet-active {
+  background: var(--accent);
+  opacity: 1;
+}
