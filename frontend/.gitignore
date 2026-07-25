@@ -33,8 +33,12 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
+# Local/secret overrides stay out; the shared non-secret defaults that builds
+# depend on (API + site URLs) are committed so a fresh clone builds correctly.
 .env*
 !.env.example
+!.env.development
+!.env.production
 
 # vercel
 .vercel

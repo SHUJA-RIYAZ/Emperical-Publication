@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -40,7 +41,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BOOK_CATEGORIES, BOOK_LANGUAGES } from "@/constants";
+import { useAuthHydrated, useAuthStore } from "@/hooks/use-auth-store";
 import { cn } from "@/lib/utils";
+import { uploadManuscript } from "@/services/account.service";
 import { submitPublishingRequest, type SubmissionResult } from "@/services/publish.service";
 
 const STORAGE_KEY = "eip-publish-draft";
@@ -96,12 +99,23 @@ function loadDraft(): PublishValues {
   }
 }
 
+interface UploadedFile {
+  name: string;
+  sizeKb: number;
+  /** Server-side path returned by the upload endpoint. */
+  path: string;
+}
+
 export function PublishForm() {
   const [step, setStep] = useState(0);
-  const [file, setFile] = useState<{ name: string; sizeKb: number } | null>(null);
+  const [file, setFile] = useState<UploadedFile | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const restoredRef = useRef(false);
+  const prefilledRef = useRef(false);
+  const authHydrated = useAuthHydrated();
+  const accountUser = useAuthStore((s) => s.user);
 
   const {
     register,
@@ -137,6 +151,20 @@ export function PublishForm() {
     return () => subscription.unsubscribe();
   }, [watch]);
 
+  // Pre-fill contact details from the signed-in author's profile, without
+  // overwriting anything they have already typed or restored from a draft.
+  useEffect(() => {
+    if (!authHydrated || !accountUser || prefilledRef.current) return;
+    prefilledRef.current = true;
+    const current = getValues();
+    if (!current.fullName) setValue("fullName", accountUser.fullName);
+    if (!current.email) setValue("email", accountUser.email);
+    if (!current.phone && accountUser.phone) setValue("phone", accountUser.phone);
+    if (!current.country && accountUser.country) setValue("country", accountUser.country);
+    if (!current.affiliation && accountUser.affiliation)
+      setValue("affiliation", accountUser.affiliation);
+  }, [authHydrated, accountUser, getValues, setValue]);
+
   const next = useCallback(async () => {
     const fields = STEPS[step].fields;
     const valid = fields.length === 0 || (await trigger(fields));
@@ -159,19 +187,45 @@ export function PublishForm() {
       const response = await submitPublishingRequest({
         ...values,
         manuscriptFileName: file?.name,
+        manuscriptFilePath: file?.path,
+        manuscriptFileSize: file ? file.sizeKb * 1024 : undefined,
       });
       setResult(response);
       localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      toast.error("Submission failed", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "We could not reach the server. Please try again.",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /** Uploads immediately so the manuscript is stored before the form is sent. */
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
-    setFile({ name: selected.name, sizeKb: Math.round(selected.size / 1024) });
-    toast.success("File attached", { description: selected.name });
+    setUploading(true);
+    try {
+      const uploaded = await uploadManuscript(selected);
+      setFile({
+        name: uploaded.fileName,
+        sizeKb: Math.max(1, Math.round(uploaded.fileSize / 1024)),
+        path: uploaded.filePath,
+      });
+      toast.success("Manuscript uploaded", { description: uploaded.fileName });
+    } catch (error) {
+      setFile(null);
+      toast.error("Upload failed", {
+        description: error instanceof Error ? error.message : "Please try a different file.",
+      });
+    } finally {
+      setUploading(false);
+      e.target.value = ""; // allow re-selecting the same file
+    }
   };
 
   const values = getValues();
@@ -367,25 +421,35 @@ export function PublishForm() {
                     Upload your manuscript
                   </legend>
                   <p className="text-sm text-muted-foreground">
-                    Optional at this stage. We accept .docx, LaTeX (zipped), and PDF up to 25 MB.
-                    Files are previewed locally only in this demo.
+                    Optional at this stage. We accept .docx, .pdf, LaTeX (zipped), .rtf and .odt up
+                    to 25 MB. Your file is uploaded securely and only visible to our editorial team.
                   </p>
                   <label
                     htmlFor="manuscript"
-                    className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors hover:border-accent hover:bg-secondary/50"
+                    className={cn(
+                      "mt-5 flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors",
+                      uploading
+                        ? "cursor-progress opacity-70"
+                        : "cursor-pointer hover:border-accent hover:bg-secondary/50"
+                    )}
                   >
-                    <UploadCloud className="h-10 w-10 text-muted-foreground" aria-hidden />
+                    {uploading ? (
+                      <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" aria-hidden />
+                    ) : (
+                      <UploadCloud className="h-10 w-10 text-muted-foreground" aria-hidden />
+                    )}
                     <span className="mt-3 text-sm font-medium">
-                      Click to choose a file, or drag it here
+                      {uploading ? "Uploading your manuscript…" : "Click to choose a file"}
                     </span>
                     <span className="mt-1 text-xs text-muted-foreground">
-                      .docx, .pdf, or .zip — max 25 MB
+                      .docx, .pdf, .zip, .tex, .rtf, .odt — max 25 MB
                     </span>
                     <input
                       id="manuscript"
                       type="file"
-                      accept=".docx,.pdf,.zip"
+                      accept=".docx,.doc,.pdf,.zip,.tex,.rtf,.odt"
                       className="sr-only"
+                      disabled={uploading}
                       onChange={onFileChange}
                     />
                   </label>
@@ -395,13 +459,24 @@ export function PublishForm() {
                         <FileUp className="h-4 w-4 text-accent-foreground/70 dark:text-accent" aria-hidden />
                         <div>
                           <p className="text-sm font-medium">{file.name}</p>
-                          <p className="text-xs text-muted-foreground">{file.sizeKb} KB</p>
+                          <p className="text-xs text-muted-foreground">
+                            {file.sizeKb} KB · uploaded
+                          </p>
                         </div>
                       </div>
                       <Button type="button" variant="ghost" size="sm" onClick={() => setFile(null)}>
                         Remove
                       </Button>
                     </div>
+                  )}
+                  {!accountUser && authHydrated && (
+                    <p className="mt-4 rounded-lg border bg-secondary/40 p-3 text-xs text-muted-foreground">
+                      You are submitting as a guest.{" "}
+                      <Link href="/login?next=/publish" className="font-medium underline underline-offset-4">
+                        Sign in
+                      </Link>{" "}
+                      first to track this submission from your account dashboard.
+                    </p>
                   )}
                 </fieldset>
               )}

@@ -9,9 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ICON_KEYS, ServiceIcon } from "@/components/common/service-icon";
 import { adminFetch } from "@/lib/admin-api";
-import { invalidateSettings } from "@/services/settings.service";
-import type { SiteSettings } from "@/types";
+import { ensureDefaults, invalidateSettings } from "@/services/settings.service";
+import type { IconCard, SiteSettings } from "@/types";
 
 const SOCIAL_KEYS = ["twitter", "linkedin", "facebook", "instagram", "youtube"] as const;
 
@@ -33,6 +41,82 @@ function Section({
   );
 }
 
+/** Editor for icon + title + description lists (About values, Why-choose-us). */
+function IconCardSection({
+  title,
+  description,
+  items,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  items: IconCard[];
+  onChange: (next: IconCard[]) => void;
+}) {
+  const update = (index: number, patch: Partial<IconCard>) =>
+    onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+
+  return (
+    <Section title={title} description={description}>
+      <div className="space-y-4">
+        {items.map((item, i) => (
+          <div key={i} className="rounded-lg border bg-secondary/30 p-4">
+            <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+              <div>
+                <Label>Icon</Label>
+                <Select value={item.icon} onValueChange={(v) => update(i, { icon: v })}>
+                  <SelectTrigger className="mt-1.5" aria-label={`Icon for ${item.title || `card ${i + 1}`}`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {ICON_KEYS.map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {key}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <ServiceIcon name={item.icon} className="h-5 w-5" /> preview
+                </div>
+              </div>
+              <div>
+                <Label>Title</Label>
+                <Input
+                  className="mt-1.5"
+                  value={item.title}
+                  onChange={(e) => update(i, { title: e.target.value })}
+                />
+                <Label className="mt-3 block">Description</Label>
+                <Textarea
+                  className="mt-1.5 min-h-20"
+                  value={item.description}
+                  onChange={(e) => update(i, { description: e.target.value })}
+                />
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-3 text-destructive hover:text-destructive"
+              onClick={() => onChange(items.filter((_, j) => j !== i))}
+            >
+              <Trash2 /> Remove card
+            </Button>
+          </div>
+        ))}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onChange([...items, { icon: "star", title: "New card", description: "" }])}
+        >
+          <Plus /> Add card
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +125,7 @@ export default function AdminSettingsPage() {
   const load = useCallback(() => {
     setError(null);
     adminFetch<SiteSettings>("/admin/settings")
-      .then(setSettings)
+      .then((data) => setSettings(ensureDefaults(data)))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load settings"));
   }, []);
 
@@ -64,7 +148,7 @@ export default function AdminSettingsPage() {
         method: "PUT",
         body: settings,
       });
-      setSettings(saved);
+      setSettings(ensureDefaults(saved));
       invalidateSettings();
       toast.success("Settings saved", {
         description: "The public site now reflects your changes.",
@@ -98,7 +182,19 @@ export default function AdminSettingsPage() {
     );
   }
 
-  const { site, stats, trustedBy, socials, offices, process } = settings;
+  const {
+    site,
+    stats,
+    trustedBy,
+    socials,
+    offices,
+    process,
+    values,
+    reasons,
+    milestones,
+    leadership,
+    departments,
+  } = settings;
   const patch = (partial: Partial<SiteSettings>) => setSettings({ ...settings, ...partial });
   const patchSite = (field: keyof SiteSettings["site"], value: string | number) =>
     patch({ site: { ...site, [field]: value } });
@@ -392,6 +488,176 @@ export default function AdminSettingsPage() {
               <Plus /> Add step
             </Button>
           </div>
+        </Section>
+
+        <IconCardSection
+          title="About — our values"
+          description="The value cards on the About page."
+          items={values}
+          onChange={(next) => patch({ values: next })}
+        />
+
+        <IconCardSection
+          title="Homepage — why choose us"
+          description="The reasons grid on the homepage."
+          items={reasons}
+          onChange={(next) => patch({ reasons: next })}
+        />
+
+        <Section
+          title="About — milestones"
+          description="The company timeline on the About page."
+        >
+          <div className="space-y-3">
+            {milestones.map((milestone, i) => (
+              <div key={i} className="grid grid-cols-[110px_1fr_36px] items-end gap-3">
+                <div>
+                  {i === 0 && <Label>Year</Label>}
+                  <Input
+                    type="number"
+                    className={i === 0 ? "mt-1.5" : ""}
+                    value={milestone.year}
+                    aria-label={`Milestone ${i + 1} year`}
+                    onChange={(e) =>
+                      patch({
+                        milestones: milestones.map((m, j) =>
+                          j === i ? { ...m, year: parseInt(e.target.value, 10) || 0 } : m
+                        ),
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  {i === 0 && <Label>Event</Label>}
+                  <Input
+                    className={i === 0 ? "mt-1.5" : ""}
+                    value={milestone.event}
+                    aria-label={`Milestone ${i + 1} event`}
+                    onChange={(e) =>
+                      patch({
+                        milestones: milestones.map((m, j) =>
+                          j === i ? { ...m, event: e.target.value } : m
+                        ),
+                      })
+                    }
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-destructive hover:text-destructive"
+                  aria-label={`Remove milestone ${i + 1}`}
+                  onClick={() => patch({ milestones: milestones.filter((_, j) => j !== i) })}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                patch({
+                  milestones: [
+                    ...milestones,
+                    { year: new Date().getFullYear(), event: "New milestone" },
+                  ],
+                })
+              }
+            >
+              <Plus /> Add milestone
+            </Button>
+          </div>
+        </Section>
+
+        <Section title="About — leadership" description="Leadership profiles on the About page.">
+          <div className="space-y-4">
+            {leadership.map((person, i) => (
+              <div key={i} className="rounded-lg border bg-secondary/30 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Name</Label>
+                    <Input
+                      className="mt-1.5"
+                      value={person.name}
+                      onChange={(e) =>
+                        patch({
+                          leadership: leadership.map((p, j) =>
+                            j === i ? { ...p, name: e.target.value } : p
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Role</Label>
+                    <Input
+                      className="mt-1.5"
+                      value={person.role}
+                      onChange={(e) =>
+                        patch({
+                          leadership: leadership.map((p, j) =>
+                            j === i ? { ...p, role: e.target.value } : p
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Short bio</Label>
+                    <Textarea
+                      className="mt-1.5 min-h-20"
+                      value={person.bio}
+                      onChange={(e) =>
+                        patch({
+                          leadership: leadership.map((p, j) =>
+                            j === i ? { ...p, bio: e.target.value } : p
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 text-destructive hover:text-destructive"
+                  onClick={() => patch({ leadership: leadership.filter((_, j) => j !== i) })}
+                >
+                  <Trash2 /> Remove person
+                </Button>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                patch({ leadership: [...leadership, { name: "New person", role: "", bio: "" }] })
+              }
+            >
+              <Plus /> Add person
+            </Button>
+          </div>
+        </Section>
+
+        <Section
+          title="Contact departments"
+          description="Options in the contact form's department selector — one per line."
+        >
+          <Textarea
+            className="min-h-32"
+            value={departments.join("\n")}
+            aria-label="Contact departments, one per line"
+            onChange={(e) => patch({ departments: e.target.value.split("\n") })}
+            onBlur={(e) =>
+              patch({
+                departments: e.target.value
+                  .split("\n")
+                  .map((l) => l.trim())
+                  .filter(Boolean),
+              })
+            }
+          />
         </Section>
 
         <div className="flex justify-end pb-8">{saveButton}</div>

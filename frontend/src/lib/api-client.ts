@@ -1,12 +1,20 @@
 /**
  * Thin HTTP client for the FastAPI backend.
  *
- * Every public service tries the API first and falls back to the local mock
- * data when the backend is unreachable, so the site works in both modes.
+ * The production API URL is the built-in default, so a build with no env file
+ * still points at the live server. Local development overrides it through
+ * `.env.development` (NEXT_PUBLIC_* values are inlined at build time).
  */
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
+const PRODUCTION_API_URL = "https://irmms.org/emperical-api/api";
+
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || PRODUCTION_API_URL).replace(
+  /\/+$/,
+  ""
+);
+
+/** Mock data may only stand in for the API during local development. */
+export const ALLOW_MOCK_FALLBACK = process.env.NODE_ENV !== "production";
 
 export class ApiError extends Error {
   constructor(
@@ -22,10 +30,12 @@ interface ApiFetchOptions extends Omit<RequestInit, "body"> {
   params?: Record<string, string | number | undefined>;
   body?: unknown;
   timeoutMs?: number;
+  /** Send as-is (FormData) instead of JSON-encoding. */
+  rawBody?: BodyInit;
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-  const { params, body, timeoutMs = 8000, headers, ...init } = options;
+  const { params, body, rawBody, timeoutMs = 15000, headers, ...init } = options;
 
   const url = new URL(`${API_BASE_URL}${path}`);
   if (params) {
@@ -40,19 +50,23 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     const response = await fetch(url, {
       ...init,
       signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      // Let the browser set the multipart boundary when sending FormData.
+      headers: rawBody ? { ...headers } : { "Content-Type": "application/json", ...headers },
+      body: rawBody ?? (body !== undefined ? JSON.stringify(body) : undefined),
       cache: "no-store",
     });
 
     if (!response.ok) {
       let detail = response.statusText;
       try {
-        const data = (await response.json()) as { detail?: string };
-        if (data.detail) detail = data.detail;
+        const data = (await response.json()) as { detail?: unknown };
+        if (typeof data.detail === "string") {
+          detail = data.detail;
+        } else if (Array.isArray(data.detail)) {
+          // FastAPI validation errors
+          const first = data.detail[0] as { msg?: string } | undefined;
+          if (first?.msg) detail = first.msg.replace(/^Value error,\s*/, "");
+        }
       } catch {
         // non-JSON error body
       }
@@ -66,8 +80,14 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   }
 }
 
-/** True when the failure is worth falling back to mock data (network/server down). */
+/**
+ * True when a request failed because the API itself is unreachable or broken,
+ * and (in development only) mock data may be substituted. In production this
+ * always returns false so outages surface as real error states instead of
+ * silently serving stale bundled content.
+ */
 export function isUnreachable(error: unknown): boolean {
+  if (!ALLOW_MOCK_FALLBACK) return false;
   if (error instanceof ApiError) return error.status >= 500;
   return true; // fetch/abort/network errors
 }

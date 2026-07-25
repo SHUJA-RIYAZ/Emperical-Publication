@@ -34,8 +34,38 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(32), default="admin")
+    phone: Mapped[str] = mapped_column(String(64), default="")
+    affiliation: Mapped[str] = mapped_column(String(255), default="")
+    country: Mapped[str] = mapped_column(String(120), default="")
+    role: Mapped[str] = mapped_column(String(32), default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class WishlistItem(Base):
+    __tablename__ = "wishlist_items"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    book_id: Mapped[int] = mapped_column(
+        ForeignKey("books.id", ondelete="CASCADE"), primary_key=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -146,6 +176,23 @@ class BlogPost(TimestampMixin, Base):
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("blog_posts.id", ondelete="CASCADE"))
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255), default="")
+    body: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class Service(TimestampMixin, Base):
     __tablename__ = "services"
 
@@ -186,6 +233,9 @@ class PublishingRequest(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     reference_id: Mapped[str] = mapped_column(String(32), unique=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     full_name: Mapped[str] = mapped_column(String(255))
     email: Mapped[str] = mapped_column(String(255))
     phone: Mapped[str] = mapped_column(String(64), default="")
@@ -197,9 +247,12 @@ class PublishingRequest(Base):
     word_count: Mapped[str] = mapped_column(String(64), default="")
     synopsis: Mapped[str] = mapped_column(Text, default="")
     manuscript_file_name: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    manuscript_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    manuscript_file_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     agreed_to_terms: Mapped[bool] = mapped_column(Boolean, default=False)
     is_original_work: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(32), default="pending")
+    reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

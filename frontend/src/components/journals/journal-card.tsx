@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { BookMarked, CalendarClock, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,14 @@ export function JournalCard({ journal }: { journal: Journal }) {
         </div>
         {journal.openAccess && <Badge variant="success">Open Access</Badge>}
       </div>
-      <h3 className="mt-4 font-display text-lg font-semibold leading-snug">{journal.title}</h3>
+      <h3 className="mt-4 font-display text-lg font-semibold leading-snug">
+        <Link
+          href={`/journals/${journal.slug}`}
+          className="transition-colors hover:text-accent-foreground/80 dark:hover:text-accent"
+        >
+          {journal.title}
+        </Link>
+      </h3>
       <p className="mt-1 text-xs text-muted-foreground">
         ISSN {journal.issn} · {journal.field}
       </p>

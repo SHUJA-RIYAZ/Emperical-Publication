@@ -1,41 +1,55 @@
 import type { MetadataRoute } from "next";
-import { authors } from "@/data/authors";
-import { blogs } from "@/data/blogs";
-import { books } from "@/data/books";
+import { SITE_URL } from "@/lib/navigation";
+import { getAuthors } from "@/services/authors.service";
+import { getBlogs } from "@/services/blog.service";
+import { getBooks } from "@/services/books.service";
 
-const BASE_URL = "https://www.empericalpublication.com";
+/** Regenerate at most hourly so new admin content gets indexed without a rebuild. */
+export const revalidate = 3600;
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const staticRoutes = [
-    "",
-    "/about",
-    "/services",
-    "/books",
-    "/authors",
-    "/journals",
-    "/publish",
-    "/blog",
-    "/contact",
-  ].map((path) => ({
-    url: `${BASE_URL}${path}`,
+const STATIC_ROUTES = [
+  "",
+  "/about",
+  "/services",
+  "/books",
+  "/authors",
+  "/journals",
+  "/publish",
+  "/blog",
+  "/contact",
+];
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const staticEntries = STATIC_ROUTES.map((path) => ({
+    url: `${SITE_URL}${path}`,
     changeFrequency: "weekly" as const,
     priority: path === "" ? 1 : 0.8,
   }));
 
+  // A sitemap must never break the build if the API is briefly unavailable.
+  const [books, authors, posts] = await Promise.all([
+    getBooks({ pageSize: 500 })
+      .then((r) => r.items)
+      .catch(() => []),
+    getAuthors().catch(() => []),
+    getBlogs().catch(() => []),
+  ]);
+
   return [
-    ...staticRoutes,
+    ...staticEntries,
     ...books.map((b) => ({
-      url: `${BASE_URL}/books/${b.slug}`,
+      url: `${SITE_URL}/books/${b.slug}`,
       changeFrequency: "monthly" as const,
       priority: 0.6,
     })),
     ...authors.map((a) => ({
-      url: `${BASE_URL}/authors/${a.slug}`,
+      url: `${SITE_URL}/authors/${a.slug}`,
       changeFrequency: "monthly" as const,
       priority: 0.5,
     })),
-    ...blogs.map((p) => ({
-      url: `${BASE_URL}/blog/${p.slug}`,
+    ...posts.map((p) => ({
+      url: `${SITE_URL}/blog/${p.slug}`,
+      lastModified: new Date(p.publishedAt),
       changeFrequency: "monthly" as const,
       priority: 0.5,
     })),

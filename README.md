@@ -23,7 +23,8 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 **Admin panel:** http://localhost:3000/admin — default login
-`admin@empericalpublication.com` / `Admin@123` (set in `backend/.env` before seeding).
+the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set in `backend/.env` before seeding.
+Use a strong password — the account has full content access.
 
 ## Tech stack
 
@@ -74,8 +75,14 @@ admin panel appears immediately.
 - Config-driven CRUD (one `CrudManager` component + `src/config/admin-resources.ts`)
   for Books (incl. author assignment), Authors, Blog Posts, Journals, Services,
   Testimonials, and FAQs — create/edit dialogs, search, delete confirmation
-- Inboxes for publishing submissions (pending → in review → accepted/rejected),
-  contact messages (new → responded → archived), and newsletter subscribers
+- Inboxes for publishing submissions (pending → in review → accepted/rejected,
+  with manuscript download and reviewer notes the author sees), contact
+  messages, blog-comment moderation (pending → approved/spam), and subscribers
+- User management (admins + registered authors)
+- **Site Settings** covering every piece of site-wide copy: company details and
+  founded year, statistics, trusted-by list, social links, offices, publishing
+  process, About values/milestones/leadership, homepage "why choose us" cards,
+  and the contact form's department list
 
 ### Notable features
 
@@ -83,7 +90,11 @@ admin panel appears immediately.
   pagination, persisted wishlist, PDF sample preview modal, related titles
 - Publish: 5-step wizard with per-step Zod validation, progress indicator,
   localStorage autosave/restore, file-upload preview, success modal, reset
-- Global search dialog (Ctrl/Cmd+K) over the catalogue
+- Author portal: register/sign in, submit manuscripts (real file upload) tied to
+  your account, track review status and reviewer feedback, synced wishlist
+- Site-wide search dialog (Ctrl/Cmd+K) across books, authors, journals, and articles
+- Blog comments with editorial moderation before publication
+- Real social share intents (X, LinkedIn, Facebook, email, copy link)
 - Fully responsive, WCAG-minded (skip link, ARIA labels, focus rings,
   keyboard navigation, `prefers-reduced-motion` respected)
 - SEO: per-page metadata, Open Graph, sitemap.xml, robots.txt, SSG for all

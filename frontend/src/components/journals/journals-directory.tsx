@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { CalendarClock, Percent, Search, Timer, UserRound } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
@@ -88,7 +89,12 @@ export function JournalsDirectory() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h2 className="font-display text-xl font-semibold leading-snug">
-                    {journal.title}
+                    <Link
+                      href={`/journals/${journal.slug}`}
+                      className="transition-colors hover:text-accent-foreground/80 dark:hover:text-accent"
+                    >
+                      {journal.title}
+                    </Link>
                   </h2>
                   <p className="mt-1 text-xs text-muted-foreground">
                     ISSN {journal.issn} · e-ISSN {journal.eIssn} · Est. {journal.established}

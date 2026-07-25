@@ -91,6 +91,19 @@ def book_years(db: Session = Depends(get_db)):
     return list(rows)
 
 
+@router.get("/categories", response_model=list[str])
+def book_categories(db: Session = Depends(get_db)):
+    """Distinct categories actually in the catalogue, so admin-added ones appear in filters."""
+    rows = db.scalars(select(Book.category).distinct().order_by(Book.category)).all()
+    return [c for c in rows if c]
+
+
+@router.get("/languages", response_model=list[str])
+def book_languages(db: Session = Depends(get_db)):
+    rows = db.scalars(select(Book.language).distinct().order_by(Book.language)).all()
+    return [lang for lang in rows if lang]
+
+
 @router.get("/quick-search", response_model=list[BookOut], response_model_by_alias=True)
 def quick_search(q: str, limit: int = Query(5, ge=1, le=20), db: Session = Depends(get_db)):
     term = f"%{q.lower()}%"

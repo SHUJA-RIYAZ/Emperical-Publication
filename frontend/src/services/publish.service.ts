@@ -1,3 +1,4 @@
+import { getUserToken } from "@/hooks/use-auth-store";
 import { apiFetch, isUnreachable } from "@/lib/api-client";
 import type { ContactMessage, PublishingRequest } from "@/types";
 import { delay } from "./api";
@@ -15,10 +16,13 @@ function mockReferenceId(prefix: string): string {
 export async function submitPublishingRequest(
   data: PublishingRequest
 ): Promise<SubmissionResult> {
+  const token = getUserToken();
   try {
     return await apiFetch<SubmissionResult>("/publishing-requests", {
       method: "POST",
       body: data,
+      // Signed-in authors get the submission attached to their account.
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
   } catch (error) {
     if (!isUnreachable(error)) throw error;

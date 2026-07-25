@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, KeyRound, Loader2, LogIn, MailCheck, UserPlus } from "lucide-react";
 import { useForm, type FieldErrors, type UseFormRegisterReturn } from "react-hook-form";
@@ -11,11 +12,25 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { delay } from "@/services/api";
+import { useAuthStore } from "@/hooks/use-auth-store";
+import { useQueryParam } from "@/hooks/use-query-param";
+import { useWishlist } from "@/hooks/use-wishlist";
+import {
+  loginAccount,
+  mergeServerWishlist,
+  registerAccount,
+  requestPasswordReset,
+  resetPassword,
+} from "@/services/account.service";
 
 /* ------------------------------------------------------------------ */
 /* Shared bits                                                         */
 /* ------------------------------------------------------------------ */
+
+function errorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 function FieldError({ errors, name }: { errors: FieldErrors; name: string }) {
   const message = errors[name]?.message;
@@ -87,17 +102,40 @@ export function AuthShell({
   );
 }
 
+const passwordRule = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[A-Z]/, "Include at least one uppercase letter")
+  .regex(/[0-9]/, "Include at least one number");
+
+/**
+ * A guest may have built up a wishlist before signing in — push it to the
+ * account so it survives, then adopt the merged server list.
+ */
+async function syncWishlistAfterSignIn(localIds: string[], replace: (ids: string[]) => void) {
+  try {
+    replace(await mergeServerWishlist(localIds));
+  } catch {
+    // Non-fatal: the wishlist stays local until the next successful sync.
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Login                                                               */
 /* ------------------------------------------------------------------ */
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(1, "Password is required"),
   remember: z.boolean(),
 });
 
 export function LoginForm() {
+  const router = useRouter();
+  const nextPath = useQueryParam("next");
+  const setSession = useAuthStore((s) => s.setSession);
+  const bookIds = useWishlist((s) => s.bookIds);
+  const replaceAll = useWishlist((s) => s.replaceAll);
   const [submitting, setSubmitting] = useState(false);
   const {
     register,
@@ -110,13 +148,21 @@ export function LoginForm() {
     defaultValues: { email: "", password: "", remember: false },
   });
 
-  const onSubmit = async () => {
+  const onSubmit = async (values: z.infer<typeof loginSchema>) => {
     setSubmitting(true);
-    await delay(800);
-    setSubmitting(false);
-    toast.success("Signed in (demo)", {
-      description: "Authentication will be connected to the backend at launch.",
-    });
+    try {
+      const result = await loginAccount(values.email, values.password);
+      setSession(result.accessToken, result.user);
+      await syncWishlistAfterSignIn(bookIds, replaceAll);
+      toast.success(`Welcome back, ${result.user.fullName}`);
+      router.replace(nextPath || "/account");
+    } catch (error) {
+      toast.error("Sign in failed", {
+        description: errorMessage(error, "Could not reach the server. Please try again."),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -164,11 +210,9 @@ const registerSchema = z
   .object({
     name: z.string().min(2, "Please enter your full name"),
     email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "Include at least one uppercase letter")
-      .regex(/[0-9]/, "Include at least one number"),
+    affiliation: z.string().optional(),
+    country: z.string().optional(),
+    password: passwordRule,
     confirmPassword: z.string(),
     terms: z.boolean().refine((v) => v, "Please accept the terms to continue"),
   })
@@ -178,6 +222,10 @@ const registerSchema = z
   });
 
 export function RegisterForm() {
+  const router = useRouter();
+  const setSession = useAuthStore((s) => s.setSession);
+  const bookIds = useWishlist((s) => s.bookIds);
+  const replaceAll = useWishlist((s) => s.replaceAll);
   const [submitting, setSubmitting] = useState(false);
   const {
     register,
@@ -187,16 +235,38 @@ export function RegisterForm() {
     formState: { errors },
   } = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "", terms: false },
+    defaultValues: {
+      name: "",
+      email: "",
+      affiliation: "",
+      country: "",
+      password: "",
+      confirmPassword: "",
+      terms: false,
+    },
   });
 
-  const onSubmit = async () => {
+  const onSubmit = async (values: z.infer<typeof registerSchema>) => {
     setSubmitting(true);
-    await delay(900);
-    setSubmitting(false);
-    toast.success("Account created (demo)", {
-      description: "Registration will be connected to the backend at launch.",
-    });
+    try {
+      const result = await registerAccount({
+        fullName: values.name,
+        email: values.email,
+        password: values.password,
+        affiliation: values.affiliation ?? "",
+        country: values.country ?? "",
+      });
+      setSession(result.accessToken, result.user);
+      await syncWishlistAfterSignIn(bookIds, replaceAll);
+      toast.success("Account created", { description: "Welcome to Emperical." });
+      router.replace("/account");
+    } catch (error) {
+      toast.error("Registration failed", {
+        description: errorMessage(error, "Could not reach the server. Please try again."),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -210,6 +280,16 @@ export function RegisterForm() {
         <Label htmlFor="reg-email">Email</Label>
         <Input id="reg-email" type="email" className="mt-1.5" placeholder="you@institution.edu" autoComplete="email" aria-invalid={!!errors.email} {...register("email")} />
         <FieldError errors={errors} name="email" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="reg-affiliation">Institution (optional)</Label>
+          <Input id="reg-affiliation" className="mt-1.5" placeholder="University" {...register("affiliation")} />
+        </div>
+        <div>
+          <Label htmlFor="reg-country">Country (optional)</Label>
+          <Input id="reg-country" className="mt-1.5" placeholder="United States" autoComplete="country-name" {...register("country")} />
+        </div>
       </div>
       <div>
         <Label htmlFor="reg-password">Password</Label>
@@ -267,11 +347,18 @@ export function ForgotPasswordForm() {
     defaultValues: { email: "" },
   });
 
-  const onSubmit = async () => {
+  const onSubmit = async (values: z.infer<typeof forgotSchema>) => {
     setSubmitting(true);
-    await delay(800);
-    setSubmitting(false);
-    setSent(true);
+    try {
+      await requestPasswordReset(values.email);
+      setSent(true);
+    } catch (error) {
+      toast.error("Request failed", {
+        description: errorMessage(error, "Could not reach the server. Please try again."),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (sent) {
@@ -282,7 +369,8 @@ export function ForgotPasswordForm() {
         </div>
         <p className="font-medium">Check your inbox</p>
         <p className="text-sm text-muted-foreground">
-          If an account exists for that address, a reset link is on its way.
+          If an account exists for that address, a reset link is on its way. The link expires in
+          two hours.
         </p>
         <Button asChild variant="outline" className="mt-2">
           <Link href="/login">Back to sign in</Link>
@@ -312,11 +400,7 @@ export function ForgotPasswordForm() {
 
 const resetSchema = z
   .object({
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "Include at least one uppercase letter")
-      .regex(/[0-9]/, "Include at least one number"),
+    password: passwordRule,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -325,6 +409,8 @@ const resetSchema = z
   });
 
 export function ResetPasswordForm() {
+  const router = useRouter();
+  const token = useQueryParam("token");
   const [submitting, setSubmitting] = useState(false);
   const {
     register,
@@ -335,14 +421,40 @@ export function ResetPasswordForm() {
     defaultValues: { password: "", confirmPassword: "" },
   });
 
-  const onSubmit = async () => {
+  const onSubmit = async (values: z.infer<typeof resetSchema>) => {
+    if (!token) return;
     setSubmitting(true);
-    await delay(800);
-    setSubmitting(false);
-    toast.success("Password updated (demo)", {
-      description: "You can now sign in with your new password.",
-    });
+    try {
+      const result = await resetPassword(token, values.password);
+      toast.success("Password updated", { description: result.message });
+      router.replace("/login");
+    } catch (error) {
+      toast.error("Reset failed", {
+        description: errorMessage(error, "This link may have expired. Request a new one."),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // `undefined` = the query string has not been read yet.
+  if (token === undefined) {
+    return <div className="h-40 animate-pulse rounded-md bg-muted" aria-label="Loading" />;
+  }
+
+  if (!token) {
+    return (
+      <div className="space-y-4" role="alert">
+        <p className="text-sm text-destructive">
+          This reset link is missing its token. Please use the link from your email, or request a
+          new one.
+        </p>
+        <Button asChild variant="outline" className="w-full">
+          <Link href="/forgot-password">Request a new link</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">

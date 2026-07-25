@@ -38,8 +38,9 @@ uvicorn app.main:app --reload --port 8000
 
 Interactive docs: http://localhost:8000/docs
 
-Default admin login (change in `.env` before seeding):
-`admin@empericalpublication.com` / `Admin@123`
+The admin account is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env` on
+the first `python seed.py` run. **Set a strong password before seeding** — and
+if you have already seeded with a default, change it from Admin → Users.
 
 ### Forgot your MySQL root password?
 
@@ -51,6 +52,20 @@ Default admin login (change in `.env` before seeding):
    `& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqld.exe" --init-file=C:\mysql-init.txt --console`
 5. After it finishes starting, press Ctrl+C, delete `C:\mysql-init.txt`, then `Start-Service MySQL80`.
 6. Root's password is now `Root@123` — put it in `.env` and `yoyo.ini` (and change it afterwards).
+
+## Deployment checklist (cPanel)
+
+1. **`CORS_ORIGINS` must include your frontend origin** (`https://irmms.org`).
+   Every browser request fails the CORS preflight otherwise — this is the most
+   common cause of a deployed site that loads but shows no data.
+2. **`SITE_URL`** must be the public site URL including the sub-path
+   (`https://irmms.org/emperical-publication`) so password-reset links work.
+3. **`UPLOAD_DIR`** must be writable by the app user, and should live outside
+   the web root so manuscripts are not publicly downloadable. Files are served
+   only through the authenticated admin endpoint.
+4. Run `yoyo apply --batch` after every deploy that includes new migrations.
+5. Set `SMTP_*` to enable password-reset emails. Until then the reset endpoint
+   still issues tokens but writes the message to the log instead of sending it.
 
 ## Architecture
 
@@ -75,9 +90,25 @@ backend/
         ├── journals.py      # list, featured, by-slug
         ├── content.py       # services, testimonials, faqs
         ├── submissions.py   # POST publishing-requests / contact-messages / newsletter
-        └── admin.py         # JWT login, generic CRUD for 7 resources,
-                             # submission status workflows, dashboard stats
+        ├── auth.py          # author portal: register, login, me, profile,
+        │                    # change/forgot/reset password, my submissions, wishlist
+        ├── comments.py      # public blog comments (held for moderation)
+        ├── search.py        # site-wide search across all four content types
+        ├── uploads.py       # manuscript upload (multipart, type + size validated)
+        └── admin.py         # JWT login, generic CRUD for 7 resources, user
+                             # management, submission status + reviewer notes,
+                             # manuscript download, comment moderation,
+                             # settings, dashboard stats
 ```
+
+### Site settings sections
+
+`site_settings` is a JSON key/value table — each admin-editable section is one
+row, with `backend/seed/settings.json` supplying defaults for any section not
+yet saved. Sections: `site`, `stats`, `trustedBy`, `socials`, `offices`,
+`process`, `values`, `reasons`, `milestones`, `leadership`, `departments`.
+Adding a section needs no migration: extend `SiteSettingsPayload`, add it to
+the frontend `defaultSettings`, and re-run `npm --prefix frontend run export-seed`.
 
 ## Design notes
 

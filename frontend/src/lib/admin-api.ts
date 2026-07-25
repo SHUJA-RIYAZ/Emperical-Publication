@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch, ApiError } from "./api-client";
+import { withBasePath } from "./navigation";
 
 const TOKEN_KEY = "eip-admin-token";
 const USER_KEY = "eip-admin-user";
@@ -53,7 +54,7 @@ export async function adminFetch<T>(
     if (error instanceof ApiError && error.status === 401) {
       clearAdminSession();
       if (typeof window !== "undefined" && !window.location.pathname.endsWith("/admin/login")) {
-        window.location.href = "/admin/login";
+        window.location.href = withBasePath("/admin/login");
       }
     }
     throw error;

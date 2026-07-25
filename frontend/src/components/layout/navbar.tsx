@@ -15,6 +15,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useAuthHydrated, useAuthStore } from "@/hooks/use-auth-store";
 import { useWishlist } from "@/hooks/use-wishlist";
 import { Logo } from "./logo";
 import { SearchDialog } from "./search-dialog";
@@ -29,6 +30,9 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const wishlistCount = useWishlist((s) => s.bookIds.length);
+  const authHydrated = useAuthHydrated();
+  const accountUser = useAuthStore((s) => s.user);
+  const signedIn = authHydrated && !!accountUser;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -94,9 +98,15 @@ export function Navbar() {
             </Link>
           </Button>
           <ThemeToggle />
-          <Button asChild variant="ghost" size="icon" aria-label="Sign in" className="hidden sm:inline-flex">
-            <Link href="/login">
-              <UserRound />
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            aria-label={signedIn ? "My account" : "Sign in"}
+            className="hidden sm:inline-flex"
+          >
+            <Link href={signedIn ? "/account" : "/login"}>
+              <UserRound className={signedIn ? "text-accent-foreground dark:text-accent" : undefined} />
             </Link>
           </Button>
           <Button asChild variant="accent" size="sm" className="ml-2 hidden md:inline-flex">
@@ -143,7 +153,9 @@ export function Navbar() {
               </nav>
               <div className="mt-auto flex flex-col gap-2 border-t pt-4">
                 <Button asChild variant="outline" onClick={() => setDrawerOpen(false)}>
-                  <Link href="/login">Sign In</Link>
+                  <Link href={signedIn ? "/account" : "/login"}>
+                    {signedIn ? "My Account" : "Sign In"}
+                  </Link>
                 </Button>
                 <Button asChild variant="accent" onClick={() => setDrawerOpen(false)}>
                   <Link href="/publish">Publish With Us</Link>

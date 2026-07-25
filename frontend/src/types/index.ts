@@ -128,6 +128,8 @@ export interface PublishingRequest {
   wordCount: string;
   synopsis: string;
   manuscriptFileName?: string;
+  manuscriptFilePath?: string;
+  manuscriptFileSize?: number;
   agreedToTerms: boolean;
   isOriginalWork: boolean;
 }
@@ -169,6 +171,23 @@ export interface ProcessStep {
   description: string;
 }
 
+export interface IconCard {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface Milestone {
+  year: number;
+  event: string;
+}
+
+export interface LeaderProfile {
+  name: string;
+  role: string;
+  bio: string;
+}
+
 export interface SiteSettings {
   site: SiteInfo;
   stats: StatItem[];
@@ -176,6 +195,11 @@ export interface SiteSettings {
   socials: Record<string, string>;
   offices: OfficeItem[];
   process: ProcessStep[];
+  values: IconCard[];
+  reasons: IconCard[];
+  milestones: Milestone[];
+  leadership: LeaderProfile[];
+  departments: string[];
 }
 
 export interface PaginatedResult<T> {
