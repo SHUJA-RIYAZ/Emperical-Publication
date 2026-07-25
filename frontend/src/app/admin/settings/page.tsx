@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { ICON_KEYS, ServiceIcon } from "@/components/common/service-icon";
 import { adminFetch } from "@/lib/admin-api";
-import { invalidateSettings } from "@/services/settings.service";
+import { ensureDefaults, invalidateSettings } from "@/services/settings.service";
 import type { IconCard, SiteSettings } from "@/types";
 
 const SOCIAL_KEYS = ["twitter", "linkedin", "facebook", "instagram", "youtube"] as const;
@@ -125,7 +125,7 @@ export default function AdminSettingsPage() {
   const load = useCallback(() => {
     setError(null);
     adminFetch<SiteSettings>("/admin/settings")
-      .then(setSettings)
+      .then((data) => setSettings(ensureDefaults(data)))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load settings"));
   }, []);
 
@@ -148,7 +148,7 @@ export default function AdminSettingsPage() {
         method: "PUT",
         body: settings,
       });
-      setSettings(saved);
+      setSettings(ensureDefaults(saved));
       invalidateSettings();
       toast.success("Settings saved", {
         description: "The public site now reflects your changes.",

@@ -8,6 +8,26 @@ let cache: { value: SiteSettings; at: number } | null = null;
 let inflight: Promise<SiteSettings> | null = null;
 
 /**
+ * Ensures a settings object has all properties set, falling back to defaults if missing.
+ */
+export function ensureDefaults(data: Partial<SiteSettings> | null | undefined): SiteSettings {
+  if (!data) return defaultSettings;
+  return {
+    site: data.site ? { ...defaultSettings.site, ...data.site } : defaultSettings.site,
+    stats: data.stats ?? defaultSettings.stats,
+    trustedBy: data.trustedBy ?? defaultSettings.trustedBy,
+    socials: data.socials ? { ...defaultSettings.socials, ...data.socials } : defaultSettings.socials,
+    offices: data.offices ?? defaultSettings.offices,
+    process: data.process ?? defaultSettings.process,
+    values: data.values ?? defaultSettings.values,
+    reasons: data.reasons ?? defaultSettings.reasons,
+    milestones: data.milestones ?? defaultSettings.milestones,
+    leadership: data.leadership ?? defaultSettings.leadership,
+    departments: data.departments ?? defaultSettings.departments,
+  };
+}
+
+/**
  * Fetches admin-editable site settings. Cached briefly because several
  * components request it per page load; the short TTL means admin edits appear
  * without restarting the server. Falls back to the last good copy (or the
@@ -19,8 +39,9 @@ export async function getSettings(): Promise<SiteSettings> {
 
   inflight = apiFetch<SiteSettings>("/settings", { timeoutMs: 6000 })
     .then((settings) => {
-      cache = { value: settings, at: Date.now() };
-      return settings;
+      const sanitized = ensureDefaults(settings);
+      cache = { value: sanitized, at: Date.now() };
+      return sanitized;
     })
     .catch((error: unknown) => {
       void isUnreachable(error);
@@ -37,3 +58,4 @@ export async function getSettings(): Promise<SiteSettings> {
 export function invalidateSettings(): void {
   cache = null;
 }
+
