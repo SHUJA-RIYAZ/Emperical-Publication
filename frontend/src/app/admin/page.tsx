@@ -10,6 +10,7 @@ import {
   Mail,
   MessageSquareQuote,
   Newspaper,
+  ShieldCheck,
   Users,
   UsersRound,
   Wrench,
@@ -40,6 +41,7 @@ interface DashboardData {
   totalRequests: number;
   newMessages: number;
   subscribers: number;
+  registeredUsers: number;
   recentRequests: { id: string; fullName: string; bookTitle: string; status: string; createdAt: string }[];
   recentMessages: { id: string; name: string; subject: string; status: string; createdAt: string }[];
 }
@@ -79,6 +81,7 @@ export default function AdminDashboardPage() {
         { label: "Pending Submissions", value: data.pendingRequests, icon: Inbox, href: "/admin/submissions", highlight: true },
         { label: "New Messages", value: data.newMessages, icon: Mail, href: "/admin/messages", highlight: true },
         { label: "Subscribers", value: data.subscribers, icon: UsersRound, href: "/admin/subscribers" },
+        { label: "Registered Authors", value: data.registeredUsers, icon: ShieldCheck, href: "/admin/users" },
       ]
     : [];
 

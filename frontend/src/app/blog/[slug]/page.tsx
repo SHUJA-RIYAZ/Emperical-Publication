@@ -104,7 +104,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </div>
           </div>
 
-          <CommentsSection />
+          <CommentsSection slug={post.slug} />
         </div>
       </article>
 

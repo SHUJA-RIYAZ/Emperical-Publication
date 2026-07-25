@@ -11,7 +11,7 @@ export default function RegisterPage() {
   return (
     <AuthShell
       title="Create your account"
-      description="Join 1,800+ authors publishing with Emperical International Publication."
+      description="Join 1,800+ authors publishing with Emperical — submit manuscripts, track reviews, and save titles."
       footer={
         <>
           Already have an account?{" "}

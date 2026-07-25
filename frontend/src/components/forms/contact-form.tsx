@@ -17,16 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useSettings } from "@/hooks/use-settings";
 import { submitContactMessage } from "@/services/publish.service";
-
-const DEPARTMENTS = [
-  "Editorial & Submissions",
-  "Author Services & Royalties",
-  "Sales & Distribution",
-  "Rights & Permissions",
-  "Press & Media",
-  "General Enquiries",
-] as const;
 
 const schema = z.object({
   name: z.string().min(2, "Please enter your name"),
@@ -39,6 +31,7 @@ const schema = z.object({
 type ContactValues = z.infer<typeof schema>;
 
 export function ContactForm() {
+  const { departments } = useSettings();
   const [submitting, setSubmitting] = useState(false);
   const {
     register,
@@ -97,7 +90,7 @@ export function ContactForm() {
               <SelectValue placeholder="Who should read this?" />
             </SelectTrigger>
             <SelectContent>
-              {DEPARTMENTS.map((d) => (
+              {departments.map((d) => (
                 <SelectItem key={d} value={d}>
                   {d}
                 </SelectItem>

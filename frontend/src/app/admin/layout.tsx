@@ -13,9 +13,11 @@ import {
   Loader2,
   LogOut,
   Mail,
+  MessageSquare,
   MessageSquareQuote,
   Newspaper,
   Settings,
+  ShieldCheck,
   Users,
   UsersRound,
   Wrench,
@@ -35,8 +37,10 @@ const NAV = [
   { label: "Testimonials", href: "/admin/testimonials", icon: MessageSquareQuote },
   { label: "FAQs", href: "/admin/faqs", icon: HelpCircle },
   { label: "Submissions", href: "/admin/submissions", icon: Inbox },
+  { label: "Comments", href: "/admin/comments", icon: MessageSquare },
   { label: "Messages", href: "/admin/messages", icon: Mail },
   { label: "Subscribers", href: "/admin/subscribers", icon: UsersRound },
+  { label: "Users", href: "/admin/users", icon: ShieldCheck },
   { label: "Site Settings", href: "/admin/settings", icon: Settings },
 ] as const;
 

@@ -124,6 +124,25 @@ export async function getRelatedBooks(book: Book, limit = 4): Promise<Book[]> {
   }
 }
 
+/** Categories present in the catalogue, so admin-added ones appear in filters. */
+export async function getBookCategories(): Promise<string[]> {
+  try {
+    return await apiFetch<string[]>("/books/categories");
+  } catch (error) {
+    if (!isUnreachable(error)) throw error;
+    return [...new Set(books.map((b) => b.category))].sort();
+  }
+}
+
+export async function getBookLanguages(): Promise<string[]> {
+  try {
+    return await apiFetch<string[]>("/books/languages");
+  } catch (error) {
+    if (!isUnreachable(error)) throw error;
+    return [...new Set(books.map((b) => b.language))].sort();
+  }
+}
+
 export async function getBookYears(): Promise<number[]> {
   try {
     return await apiFetch<number[]>("/books/years");

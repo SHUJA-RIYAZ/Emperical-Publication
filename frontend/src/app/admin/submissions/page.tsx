@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Eye } from "lucide-react";
+import { Download, Eye, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
@@ -30,7 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { adminFetch } from "@/lib/admin-api";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { adminFetch, getAdminToken } from "@/lib/admin-api";
+import { API_BASE_URL } from "@/lib/api-client";
 import { formatDate } from "@/lib/utils";
 
 interface Submission {
@@ -47,6 +50,9 @@ interface Submission {
   wordCount: string;
   synopsis: string;
   manuscriptFileName?: string | null;
+  manuscriptFilePath?: string | null;
+  userId?: string | null;
+  reviewerNotes?: string | null;
   status: string;
   createdAt: string;
 }
@@ -63,6 +69,8 @@ export default function AdminSubmissionsPage() {
   const [rows, setRows] = useState<Submission[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<Submission | null>(null);
+  const [notes, setNotes] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const load = useCallback(() => {
     setError(null);
@@ -72,6 +80,55 @@ export default function AdminSubmissionsPage() {
   }, []);
 
   useEffect(load, [load]);
+
+  const openViewer = (row: Submission) => {
+    setViewing(row);
+    setNotes(row.reviewerNotes ?? "");
+  };
+
+  const saveNotes = async () => {
+    if (!viewing) return;
+    setSavingNotes(true);
+    try {
+      await adminFetch(`/admin/publishing-requests/${viewing.id}/notes`, {
+        method: "PATCH",
+        body: { reviewerNotes: notes },
+      });
+      toast.success("Reviewer notes saved", {
+        description: "The author can now see them in their account.",
+      });
+      setViewing(null);
+      load();
+    } catch (e) {
+      toast.error("Could not save notes", { description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  /** Downloads through an authenticated fetch, since the endpoint needs a bearer token. */
+  const downloadManuscript = async (row: Submission) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/admin/publishing-requests/${row.id}/manuscript`,
+        { headers: { Authorization: `Bearer ${getAdminToken() ?? ""}` } }
+      );
+      if (!response.ok) throw new Error(`Download failed (${response.status})`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = row.manuscriptFileName ?? "manuscript";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error("Could not download manuscript", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
+  };
 
   const setStatus = async (row: Submission, status: string) => {
     try {
@@ -158,15 +215,29 @@ export default function AdminSubmissionsPage() {
                     </Select>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      aria-label={`View submission ${row.referenceId}`}
-                      onClick={() => setViewing(row)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      {row.manuscriptFilePath && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Download manuscript for ${row.referenceId}`}
+                          title="Download manuscript"
+                          onClick={() => downloadManuscript(row)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label={`View submission ${row.referenceId}`}
+                        onClick={() => openViewer(row)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -195,6 +266,7 @@ export default function AdminSubmissionsPage() {
                   ["Category", viewing.category],
                   ["Language", viewing.language],
                   ["Word count", viewing.wordCount],
+                  ["Account", viewing.userId ? "Registered author" : "Guest submission"],
                   ["Manuscript", viewing.manuscriptFileName ?? "Not uploaded"],
                   ["Synopsis", viewing.synopsis],
                 ] as const
@@ -206,6 +278,30 @@ export default function AdminSubmissionsPage() {
               ))}
             </dl>
           )}
+
+          {viewing?.manuscriptFilePath && (
+            <Button variant="outline" onClick={() => downloadManuscript(viewing)}>
+              <Download /> Download {viewing.manuscriptFileName}
+            </Button>
+          )}
+
+          <div>
+            <Label htmlFor="reviewer-notes">Reviewer notes</Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Visible to the author in their account dashboard alongside the status.
+            </p>
+            <Textarea
+              id="reviewer-notes"
+              className="mt-2 min-h-28"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Constructive feedback for the author…"
+            />
+            <Button className="mt-3" onClick={saveNotes} disabled={savingNotes}>
+              {savingNotes ? <Loader2 className="animate-spin" /> : <Save />}
+              Save notes
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

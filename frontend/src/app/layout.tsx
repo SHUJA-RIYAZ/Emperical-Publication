@@ -3,7 +3,8 @@ import { Inter, Playfair_Display } from "next/font/google";
 import { SiteChrome } from "@/components/layout/site-chrome";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { SITE } from "@/constants";
+import { SITE_URL } from "@/lib/navigation";
+import { getSettings } from "@/services/settings.service";
 import "./globals.css";
 
 const inter = Inter({
@@ -18,26 +19,32 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: `${SITE.name} — ${SITE.tagline}`,
-    template: `%s | ${SITE.shortName}`,
-  },
-  description: SITE.description,
-  keywords: [
-    "academic publishing",
-    "scholarly books",
-    "peer-reviewed journals",
-    "publish your book",
-    "international publisher",
-  ],
-  openGraph: {
-    title: SITE.name,
-    description: SITE.description,
-    type: "website",
-    siteName: SITE.name,
-  },
-};
+/** Titles and descriptions follow whatever the admin saves in Site Settings. */
+export async function generateMetadata(): Promise<Metadata> {
+  const { site } = await getSettings();
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: {
+      default: `${site.name} — ${site.tagline}`,
+      template: `%s | ${site.shortName}`,
+    },
+    description: site.description,
+    keywords: [
+      "academic publishing",
+      "scholarly books",
+      "peer-reviewed journals",
+      "publish your book",
+      "international publisher",
+    ],
+    openGraph: {
+      title: site.name,
+      description: site.description,
+      type: "website",
+      siteName: site.name,
+      url: SITE_URL,
+    },
+  };
+}
 
 export default function RootLayout({
   children,

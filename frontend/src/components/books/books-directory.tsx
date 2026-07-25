@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Heart, LayoutGrid, List, Search } from "lucide-react";
 import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
@@ -16,12 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BOOK_CATEGORIES, BOOK_LANGUAGES } from "@/constants";
 import { useAsync } from "@/hooks/use-async";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useQueryParam } from "@/hooks/use-query-param";
 import { useWishlist } from "@/hooks/use-wishlist";
 import { cn } from "@/lib/utils";
-import { getBooks, getBookYears } from "@/services/books.service";
+import {
+  getBookCategories,
+  getBookLanguages,
+  getBooks,
+  getBookYears,
+} from "@/services/books.service";
 import type { BookQuery } from "@/types";
 import { BookCard } from "./book-card";
 import { BookCardSkeleton } from "./book-card-skeleton";
@@ -39,7 +43,7 @@ const SORT_OPTIONS: { value: NonNullable<BookQuery["sort"]>; label: string }[] =
 const PAGE_SIZE = 12;
 
 export function BooksDirectory() {
-  const searchParams = useSearchParams();
+  const viewParam = useQueryParam("view");
   const wishlistIds = useWishlist((s) => s.bookIds);
 
   const [search, setSearch] = useState("");
@@ -49,7 +53,12 @@ export function BooksDirectory() {
   const [sort, setSort] = useState<NonNullable<BookQuery["sort"]>>("newest");
   const [layout, setLayout] = useState<"grid" | "list">("grid");
   const [page, setPage] = useState(1);
-  const [wishlistOnly, setWishlistOnly] = useState(searchParams.get("view") === "wishlist");
+  const [wishlistOnly, setWishlistOnly] = useState(false);
+
+  // Honour ?view=wishlist (the navbar heart links here).
+  useEffect(() => {
+    if (viewParam === "wishlist") setWishlistOnly(true);
+  }, [viewParam]);
 
   const debouncedSearch = useDebounce(search, 350);
 
@@ -60,6 +69,10 @@ export function BooksDirectory() {
 
   const yearsFetcher = useCallback(() => getBookYears(), []);
   const { data: years } = useAsync(yearsFetcher);
+  const categoriesFetcher = useCallback(() => getBookCategories(), []);
+  const { data: categories } = useAsync(categoriesFetcher);
+  const languagesFetcher = useCallback(() => getBookLanguages(), []);
+  const { data: languages } = useAsync(languagesFetcher);
 
   const fetcher = useCallback(
     () =>
@@ -129,7 +142,7 @@ export function BooksDirectory() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All categories</SelectItem>
-                {BOOK_CATEGORIES.map((c) => (
+                {(categories ?? []).map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
@@ -145,7 +158,7 @@ export function BooksDirectory() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All languages</SelectItem>
-                {BOOK_LANGUAGES.map((l) => (
+                {(languages ?? []).map((l) => (
                   <SelectItem key={l} value={l}>
                     {l}
                   </SelectItem>
